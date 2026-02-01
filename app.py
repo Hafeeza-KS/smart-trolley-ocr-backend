@@ -1,48 +1,49 @@
-from fastapi import FastAPI, UploadFile, File
-from fastapi.middleware.cors import CORSMiddleware
+from flask import Flask, request, jsonify
+from flask_cors import CORS
 import easyocr
 import cv2
 import numpy as np
-import io
-from PIL import Image
+import os
 
-app = FastAPI()
+app = Flask(__name__)
+CORS(app)
 
-# Allow frontend (Netlify) to call backend
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=["*"],  # restrict later if needed
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
+# IMPORTANT: initialize reader lazily (saves memory)
+reader = None
 
-# Initialize OCR reader once (important for performance)
-reader = easyocr.Reader(['en'], gpu=False)
+def get_reader():
+    global reader
+    if reader is None:
+        reader = easyocr.Reader(['en'], gpu=False)
+    return reader
 
-@app.post("/ocr")
-async def ocr_image(file: UploadFile = File(...)):
-    # Read image bytes
-    image_bytes = await file.read()
+@app.route("/", methods=["GET"])
+def health():
+    return {"status": "OCR backend running"}
 
-    # Convert bytes → OpenCV image
-    np_img = np.frombuffer(image_bytes, np.uint8)
+@app.route("/ocr", methods=["POST"])
+def ocr_image():
+    if 'image' not in request.files:
+        return jsonify({"error": "No image uploaded"}), 400
+
+    file = request.files['image']
+    img_bytes = file.read()
+
+    np_img = np.frombuffer(img_bytes, np.uint8)
     img = cv2.imdecode(np_img, cv2.IMREAD_COLOR)
 
     if img is None:
-        return {"error": "Invalid image"}
+        return jsonify({"error": "Invalid image"}), 400
 
-    # Convert to grayscale (better OCR)
     gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
 
-    # OCR
+    reader = get_reader()
     results = reader.readtext(gray)
 
-    # Extract confident text only
-    items = []
-    for (_, text, confidence) in results:
-        if confidence > 0.4:
-            items.append(text.strip())
+    items = [text.strip() for (_, text, conf) in results if conf > 0.4]
 
-    return {
-        "items": items
-    }
+    return jsonify({"items": items})
+
+if __name__ == "__main__":
+    port = int(os.environ.get("PORT", 10000))
+    app.run(host="0.0.0.0", port=port)
