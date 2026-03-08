@@ -6,9 +6,9 @@ import numpy as np
 import os
 
 app = Flask(__name__)
-CORS(app, origins=["https://cres-st.netlify.app"])
 
-# IMPORTANT: initialize reader lazily (saves memory)
+CORS(app, resources={r"/*": {"origins": "https://cres-st.netlify.app"}}, supports_credentials=True)
+
 reader = None
 
 def get_reader():
@@ -21,8 +21,12 @@ def get_reader():
 def health():
     return {"status": "OCR backend running"}
 
-@app.route("/ocr", methods=["POST"])
+@app.route("/ocr", methods=["POST", "OPTIONS"])
 def ocr_image():
+
+    if request.method == "OPTIONS":
+        return '', 200
+
     if 'image' not in request.files:
         return jsonify({"error": "No image uploaded"}), 400
 
