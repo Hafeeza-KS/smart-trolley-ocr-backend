@@ -6,7 +6,7 @@ import numpy as np
 import os
 
 app = Flask(__name__)
-CORS(app, origins=["https://cres-smart-trolley.netlify.app"])
+CORS(app, origins=["https://cres-st.netlify.app"])
 
 # IMPORTANT: initialize reader lazily (saves memory)
 reader = None
