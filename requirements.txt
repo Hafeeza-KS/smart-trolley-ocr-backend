@@ -3,3 +3,6 @@ flask-cors
 easyocr
 opencv-python-headless
 numpy
+gunicorn
+torch
+torchvision
