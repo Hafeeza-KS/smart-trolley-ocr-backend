@@ -8,18 +8,7 @@ import os
 app = Flask(__name__)
 
 # ✅ Allow BOTH Netlify URLs
-CORS(
-    app,
-    resources={
-        r"/*": {
-            "origins": [
-                "https://cres-st.netlify.app",
-                "https://crest-st.netlify.app"
-            ]
-        }
-    },
-    supports_credentials=True
-)
+CORS(app)
 
 # OCR reader (lazy load)
 reader = None
