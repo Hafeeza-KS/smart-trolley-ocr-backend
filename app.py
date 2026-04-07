@@ -7,46 +7,68 @@ import os
 
 app = Flask(__name__)
 
-CORS(app, resources={r"/*": {"origins": "https://cres-st.netlify.app"}}, supports_credentials=True)
+# ✅ Allow BOTH Netlify URLs
+CORS(
+    app,
+    resources={
+        r"/*": {
+            "origins": [
+                "https://cres-st.netlify.app",
+                "https://crest-st.netlify.app"
+            ]
+        }
+    },
+    supports_credentials=True
+)
 
+# OCR reader (lazy load)
 reader = None
 
 def get_reader():
     global reader
     if reader is None:
-        reader = easyocr.Reader(['en'], gpu=False)
+        reader = easyocr.Reader(['en'], gpu=False, verbose=False)
     return reader
 
+# Health check
 @app.route("/", methods=["GET"])
 def health():
     return {"status": "OCR backend running"}
 
+# OCR API
 @app.route("/ocr", methods=["POST", "OPTIONS"])
 def ocr_image():
 
+    # ✅ Handle preflight request
     if request.method == "OPTIONS":
         return '', 200
 
     if 'image' not in request.files:
         return jsonify({"error": "No image uploaded"}), 400
 
-    file = request.files['image']
-    img_bytes = file.read()
+    try:
+        file = request.files['image']
+        img_bytes = file.read()
 
-    np_img = np.frombuffer(img_bytes, np.uint8)
-    img = cv2.imdecode(np_img, cv2.IMREAD_COLOR)
+        np_img = np.frombuffer(img_bytes, np.uint8)
+        img = cv2.imdecode(np_img, cv2.IMREAD_COLOR)
 
-    if img is None:
-        return jsonify({"error": "Invalid image"}), 400
+        if img is None:
+            return jsonify({"error": "Invalid image"}), 400
 
-    gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
+        gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
 
-    reader = get_reader()
-    results = reader.readtext(gray)
+        reader = get_reader()
+        results = reader.readtext(gray)
 
-    items = [text.strip() for (_, text, conf) in results if conf > 0.4]
+        items = [text.strip() for (_, text, conf) in results if conf > 0.4]
 
-    return jsonify({"items": items})
+        return jsonify({"items": items})
+
+    except Exception as e:
+        print("OCR ERROR:", str(e))
+        return jsonify({"error": "OCR processing failed"}), 500
+
 
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 10000))
