@@ -1,8 +1,6 @@
 flask
 flask-cors
-easyocr
+pytesseract
 opencv-python-headless
 numpy
 gunicorn
-torch
-torchvision
