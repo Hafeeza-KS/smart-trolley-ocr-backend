@@ -10,13 +10,13 @@ app = Flask(__name__)
 # ✅ Allow BOTH Netlify URLs
 CORS(app)
 
-# OCR reader (lazy load)
+# IMPORTANT: initialize reader lazily (saves memory)
 reader = None
 
 def get_reader():
     global reader
     if reader is None:
-        reader = easyocr.Reader(['en'], gpu=False, verbose=False)
+        reader = easyocr.Reader(['en'], gpu=False)
     return reader
 
 # Health check
@@ -47,8 +47,8 @@ def ocr_image():
 
         gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
 
-        reader = get_reader()
-        results = reader.readtext(gray)
+    reader = get_reader()
+    results = reader.readtext(gray)
 
         items = [text.strip() for (_, text, conf) in results if conf > 0.4]
 
